@@ -101,7 +101,7 @@
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.6);
+            background: rgba(0,0,0,0.7);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -117,10 +117,11 @@
             border-radius: 12px;
             transition: all 0.2s;
         }
-        .option-btn:hover {
+        .option-btn:hover:not(:disabled) {
             border-color: #3b82f6;
             background-color: #eff6ff;
         }
+        .option-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 
         .custom-scroll::-webkit-scrollbar { width: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -153,7 +154,7 @@
     <div class="flex gap-6 items-start">
         <!-- 左側：遊戲地圖 -->
         <div class="board-grid shadow-2xl border-4 border-white" id="board">
-            <!-- 棋子將由 JS 動態生成 -->
+            <!-- 棋子由 JS 生成 -->
             
             <!-- 中央區域 -->
             <div class="center-area border-4 border-dashed border-slate-300">
@@ -164,24 +165,33 @@
         </div>
 
         <!-- 右側：玩家狀態欄 -->
-        <div class="flex flex-col gap-4 w-80" id="player-status-container">
-            <!-- 玩家卡片將由 JS 動態生成 -->
+        <div class="flex flex-col gap-4 w-80">
+            <div id="player-status-container" class="flex flex-col gap-4"></div>
+
+            <!-- 教師筆記區 -->
+            <div class="mt-4 p-5 bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-200 shadow-sm">
+                <h4 class="font-bold text-amber-800 text-sm mb-2 flex items-center">
+                    <span class="mr-2">📝</span> 心情冒險日誌
+                </h4>
+                <div id="history-log" class="text-[11px] text-amber-700 space-y-2 max-h-48 overflow-y-auto custom-scroll pr-1">
+                    <p class="italic">等待冒險開始...</p>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- 通用彈窗 Modal -->
     <div id="modal" class="modal-overlay hidden">
-        <div id="modal-container" class="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl mx-4 max-h-[90vh] overflow-y-auto custom-scroll relative">
+        <div id="modal-container" class="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl mx-4 max-h-[90vh] overflow-y-auto custom-scroll relative transition-all duration-300">
             <div id="modal-content">
-                <div id="modal-type" class="inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 uppercase tracking-tighter">情境挑戰</div>
+                <div id="modal-type" class="inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 uppercase tracking-tighter text-white">情境挑戰</div>
                 <h2 id="modal-title" class="text-2xl font-bold mb-4 text-slate-800">標題</h2>
                 <div id="modal-body">
                     <p id="modal-desc" class="text-slate-600 mb-6 text-lg leading-relaxed">內容描述</p>
                     <div id="modal-interaction" class="mb-6 hidden"></div>
                 </div>
-                <div id="modal-options" class="flex flex-col space-y-3"></div>
+                <div id="modal-actions" class="flex flex-col space-y-3"></div>
             </div>
-            <button id="modal-close" class="hidden mt-6 w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-bold transition-all shadow-lg active:scale-95">完成挑戰</button>
         </div>
     </div>
 
@@ -196,7 +206,6 @@
                 <button onclick="closeTeacherPanel()" class="text-slate-400 hover:text-slate-600 text-3xl font-light">&times;</button>
             </div>
             
-            <!-- 設定區 -->
             <div class="bg-indigo-50 p-4 rounded-2xl mb-6 flex items-center gap-6">
                 <div class="flex items-center gap-3">
                     <label class="font-bold text-indigo-900">遊玩人數：</label>
@@ -206,23 +215,21 @@
                         <option value="4">4 人</option>
                     </select>
                 </div>
-                <div class="text-xs text-indigo-600">注意：變更人數會重置當前遊戲進度。</div>
+                <div class="text-xs text-indigo-600">注意：變更人數會重置遊戲進度。</div>
             </div>
 
             <div class="flex-1 overflow-y-auto pr-4 custom-scroll">
-                <h3 class="font-bold text-slate-700 mb-4 border-l-4 border-indigo-500 pl-2">地圖題目編輯</h3>
                 <div id="editor-list" class="space-y-6"></div>
             </div>
 
             <div class="mt-6 pt-4 border-t flex justify-end gap-3">
                 <button onclick="closeTeacherPanel()" class="px-6 py-2 border rounded-xl hover:bg-slate-50">取消</button>
-                <button onclick="saveCustomData()" class="px-10 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 shadow-md">儲存設定與地圖</button>
+                <button onclick="saveCustomData()" class="px-10 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 shadow-md">儲存並應用</button>
             </div>
         </div>
     </div>
 
     <script>
-        // 初始設定
         const PLAYER_CONFIG = [
             { id: 1, name: "玩家 1", emoji: "🦁", color: "#ef4444", border: "border-red-500" },
             { id: 2, name: "玩家 2", emoji: "🐬", color: "#3b82f6", border: "border-blue-500" },
@@ -234,61 +241,60 @@
             { id: 0, name: "起點", type: "special", desc: "重新整理情緒，領取 200 心情幣" },
             { id: 1, name: "弄丟文具", type: "sad", scenario: "你最喜歡的原子筆不見了，那可是生日禮物...", options: [
                 { text: "大哭一場，什麼都不做了", coins: 50, feedback: "哭泣能釋放壓力，但冷靜後我們再一起找找看。" },
-                { text: "冷靜下來回想最後一次在哪裡使用", coins: 200, feedback: "非常有條理！這能幫助你解決問題。心情幣 +200" },
-                { text: "懷疑是隔壁同學偷的，跟他吵架", coins: -100, feedback: "在沒證據前指責別人會傷害關係喔。心情幣 -100" }
+                { text: "冷靜下來回想最後一次在哪裡使用", coins: 200, feedback: "非常有條理！這能幫助你解決問題。" },
+                { text: "懷疑是隔壁同學偷的，跟他吵架", coins: -100, feedback: "在沒證據前指責別人會傷害關係喔。" }
             ]},
-            { id: 2, name: "生氣模仿秀", type: "task", taskType: "action", scenario: "【身體任務】請學一個生氣的樣子，做出生氣的表情與動作給同學看！", reward: 300, feedback: "哇！看起真的很有張力喔！憤怒也是一種很有力量的情緒呢。" },
+            { id: 2, name: "生氣模仿秀", type: "task", taskType: "action", scenario: "【身體任務】請學一個生氣的樣子，做出生氣的表情與動作給同學看！", reward: 300, feedback: "非常有張力喔！憤怒也是有力量的情緒。" },
             { id: 3, name: "心情休息站", type: "calm", desc: "深呼吸三次，感覺空氣進入身體，休息一回合" },
-            { id: 4, name: "心情變變變", type: "task", taskType: "input", scenario: "【思考任務】當你心情不好的時候，寫下一個能幫你「轉換壞心情」的想法或方式：", reward: 400, feedback: "這個點子太棒了！下次不開心時一定要試試看喔。" },
+            { id: 4, name: "心情變變變", type: "task", taskType: "input", scenario: "【思考任務】當你心情不好的時候，寫下一個能幫你「轉換壞心情」的想法或方式：", reward: 400, feedback: "這個點子太棒了！下次試試看喔。" },
             { id: 5, name: "上台報告", type: "fear", scenario: "輪到你上台講心得，你感覺心跳好快、手在抖...", options: [
-                { text: "假裝肚子痛，跑去保健室躲起來", coins: -100, feedback: "逃避雖然暫時有用，但壓力會累積喔。" },
-                { text: "看著教室後方的時鐘，深呼吸開始講", coins: 250, feedback: "面對恐懼就是勇敢的開始！心情幣 +250" }
+                { text: "假裝肚子痛，跑去保健室躲起來", coins: -100, feedback: "逃避雖然暫時有用，但壓力會累積。" },
+                { text: "看著教室後方的時鐘，深呼吸開始講", coins: 250, feedback: "面對恐懼就是勇敢的開始！" }
             ]},
             { id: 6, name: "心情機會", type: "special", isChance: true },
             { id: 7, name: "獲得稱讚", type: "joy", scenario: "打掃時間你主動幫忙倒垃圾，老師摸摸你的頭說你很熱心", options: [
                 { text: "覺得很害羞，下次躲起來做事", coins: 50, feedback: "害羞沒關係，但你的善良大家都有看到。" },
-                { text: "大方地笑一笑，說謝謝老師", coins: 200, feedback: "接受正向回饋能增加自信能量。心情幣 +200" }
+                { text: "大方地笑一笑，說謝謝老師", coins: 200, feedback: "接受正向回饋能增加自信能量。" }
             ]},
             { id: 8, name: "難過模仿秀", type: "task", taskType: "action", scenario: "【身體任務】請學一個「很傷心難過」的樣子，肩膀垮掉、表情憂鬱...", reward: 300, feedback: "演得好傳神！難過時，給自己一點空間休息是很重要的。" },
             { id: 9, name: "下雨取消", type: "sad", desc: "期待已久的遠足因為大雨取消了，心情好灰暗..." },
             { id: 10, name: "回收桶", type: "special", desc: "在這裡丟掉一個負面心情，獲得 100 心情幣" },
             { id: 11, name: "看到蜘蛛", type: "fear", scenario: "抽屜突然爬出一隻大蜘蛛！", options: [
                 { text: "尖叫並跑出教室", coins: 50, feedback: "這是正常的驚嚇反應。" },
-                { text: "請附近的同學或老師幫忙處理", coins: 150, feedback: "尋求支持是很好的解決策略。心情幣 +150" }
+                { text: "請附近的同學或老師幫忙處理", coins: 150, feedback: "尋求支持是很好的解決策略。" }
             ]},
             { id: 12, name: "被插隊了", type: "anger", scenario: "排隊領營養午餐，有人直接插在你前面...", options: [
-                { text: "在背後小小聲罵他，但不做什麼", coins: 0, feedback: "情緒被悶住了，下次可以試著練習表達。" },
-                { text: "拍拍他的肩膀說：同學，請排隊喔", coins: 250, feedback: "維護正義的同時保持禮貌！心情幣 +250" }
+                { text: "在背後小小聲罵他，但不做什麼", coins: 0, feedback: "心情悶住了，可以練習溫和表達。" },
+                { text: "拍拍他的肩膀說：同學，請排隊喔", coins: 250, feedback: "維護正義的同時保持禮貌！" }
             ]},
             { id: 13, name: "心情命運", type: "special", isChance: true },
-            { id: 14, name: "快樂寫真", type: "task", taskType: "input", scenario: "【思考任務】回想一件最近讓你「真心笑出來」的小事，並寫下來分享：", reward: 350, feedback: "謝謝你的分享，這份快樂能量我們都收到了！" },
+            { id: 14, name: "快樂寫真", type: "task", taskType: "input", scenario: "【思考任務】回想一件最近讓你「真心笑出來」的小事，寫下來分享：", reward: 350, feedback: "謝謝你的分享，這份快樂能量我們都收到了！" },
             { id: 15, name: "友誼能量", type: "joy", desc: "和好朋友一起分享好笑的事情，獲得 150 心情幣" },
             { id: 16, name: "打破花瓶", type: "fear", scenario: "在家玩球不小心打碎了媽媽最愛的花瓶...", options: [
-                { text: "把碎片藏起來，當作不知道", coins: -300, feedback: "隱瞞會讓恐懼感持續增長。心情幣 -300" },
-                { text: "主動跟媽媽認錯，並想辦法補償", coins: 400, feedback: "誠實與負責需要極大的勇氣！心情幣 +400" }
+                { text: "把碎片藏起來，當作不知道", coins: -300, feedback: "隱瞞會讓恐懼感持續增長。" },
+                { text: "主動跟媽媽認錯，並想辦法補償", coins: 400, feedback: "誠實與負責需要極大的勇氣！" }
             ]},
             { id: 17, name: "靜心時間", type: "calm", desc: "聽聽自己的心跳聲，獲得 100 心情幣" },
             { id: 18, name: "情緒黑洞", type: "special", desc: "陷入負向情緒漩渦，退後 3 格" },
             { id: 19, name: "害怕模仿秀", type: "task", taskType: "action", scenario: "【身體任務】請學一個「極度害怕」的樣子，縮起身子、發抖、眼神不安...", reward: 300, feedback: "非常有臨場感！感到害怕時，深呼吸可以幫你找回控制感。" },
             { id: 20, name: "分享喜悅", type: "joy", scenario: "你分了一顆糖果給同學，他開心地對你笑", options: [
-                { text: "覺得分享是一件很棒的事", coins: 250, feedback: "正向能量是會循環的！心情幣 +250" }
+                { text: "覺得分享是一件很棒的事", coins: 250, feedback: "正向能量是會循環的！" }
             ]},
             { id: 21, name: "氣象台", type: "special", isChance: true },
             { id: 22, name: "被老師誤解", type: "anger", scenario: "老師以為你在偷玩東西，其實你在幫同學撿筆...", options: [
                 { text: "大喊：老師你很煩耶！亂罵人", coins: -150, feedback: "衝動的語氣會讓老師忽略事實。" },
-                { text: "下課後私下跟老師說明經過", coins: 300, feedback: "選擇正確的時機溝通更有效率。心情幣 +300" }
+                { text: "下課後私下跟老師說明經過", coins: 300, feedback: "選擇正確的時機溝通更有效率。" }
             ]},
             { id: 23, name: "準備好了", type: "calm", desc: "充滿自信，直接前往 起點 並領獎勵" }
         ];
 
         let boardData = JSON.parse(JSON.stringify(DEFAULT_DATA));
-        let numPlayers = 2; // 預設 2 人
+        let numPlayers = 2;
         let players = [];
         let currentPlayerIndex = 0;
         const totalSpaces = 24;
 
         function initGame() {
-            // 初始化玩家資料
             players = [];
             for (let i = 0; i < numPlayers; i++) {
                 players.push({
@@ -300,45 +306,38 @@
                 });
             }
             currentPlayerIndex = 0;
-            
             initBoard();
             renderPlayerCards();
             updateTurnDisplay();
+            addLog("冒險開始！祝大家今天心情愉快。");
         }
 
         function initBoard() {
             const board = document.getElementById('board');
             board.querySelectorAll('.cell, .player-token').forEach(c => c.remove());
-
             const positions = [
                 [7,1], [7,2], [7,3], [7,4], [7,5], [7,6], [7,7],
                 [6,7], [5,7], [4,7], [3,7], [2,7],
                 [1,7], [1,6], [1,5], [1,4], [1,3], [1,2], [1,1],
                 [2,1], [3,1], [4,1], [5,1], [6,1]
             ];
-
             boardData.forEach((data, index) => {
                 const cell = document.createElement('div');
                 cell.className = 'cell shadow-sm';
                 cell.id = `cell-${index}`;
                 cell.style.gridColumn = positions[index][1];
                 cell.style.gridRow = positions[index][0];
-
                 const colorBar = document.createElement('div');
                 colorBar.className = `cell-top type-${data.type}`;
-                
                 const title = document.createElement('div');
                 title.className = 'font-bold text-slate-700 leading-tight mt-1';
                 title.innerText = data.name;
-
                 cell.appendChild(colorBar);
                 cell.appendChild(title);
                 cell.onclick = () => { if (!document.getElementById('roll-btn').disabled) showCellInfo(index); };
                 board.appendChild(cell);
             });
-
-            // 生成棋子
-            players.forEach((p, i) => {
+            players.forEach(p => {
                 const token = document.createElement('div');
                 token.id = `p${p.id}-token`;
                 token.className = `player-token animate-player`;
@@ -352,23 +351,16 @@
         function renderPlayerCards() {
             const container = document.getElementById('player-status-container');
             container.innerHTML = '';
-
             players.forEach((p, i) => {
-                const activeClass = (i === currentPlayerIndex) ? p.config.border + " shadow-lg scale-105 opacity-100" : "border-slate-200 opacity-50";
+                const active = (i === currentPlayerIndex);
                 const card = `
-                    <div id="player-card-${p.id}" class="bg-white p-5 rounded-2xl border-2 transition-all relative overflow-hidden ${activeClass}">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="font-bold text-xl" style="color: ${p.config.color}">${p.config.name} ${p.config.emoji}</span>
-                            <span id="p${p.id}-coins-display" class="font-mono text-2xl font-bold text-slate-800">$ ${p.coins}</span>
+                    <div class="bg-white p-4 rounded-2xl border-2 transition-all ${active ? p.config.border + ' shadow-lg scale-105 opacity-100' : 'border-slate-100 opacity-60'}">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-lg" style="color: ${p.config.color}">${p.config.name} ${p.config.emoji}</span>
+                            <span class="font-mono text-xl font-bold text-slate-800">$ ${p.coins}</span>
                         </div>
-                        <div class="mt-4">
-                            <div class="flex justify-between text-[11px] text-slate-400 uppercase font-bold mb-1">
-                                <span>心情章節進度</span>
-                                <span id="p${p.id}-badge-count">${p.badges}</span>
-                            </div>
-                            <div id="p${p.id}-badges-container" class="flex gap-2 mt-1 min-h-[40px] items-center p-2 bg-slate-50 rounded-xl flex-wrap">
-                                ${Array(p.badges).fill(0).map(() => `<span class="w-7 h-7 bg-orange-500 rounded-lg flex items-center justify-center text-xs text-white">🎯</span>`).join('')}
-                            </div>
+                        <div class="flex gap-1 flex-wrap mt-2 min-h-[24px]">
+                            ${Array(p.badges).fill(0).map(() => `<span class="w-6 h-6 bg-orange-400 rounded-md flex items-center justify-center text-[10px] text-white shadow-sm">🎯</span>`).join('')}
                         </div>
                     </div>
                 `;
@@ -380,16 +372,10 @@
             const token = document.getElementById(`p${playerId}-token`);
             const cell = document.getElementById(`cell-${pos}`);
             if(!token || !cell) return;
-            
-            // 根據玩家 ID 稍微偏移位置，避免重疊
-            const offsets = [
-                { x: -14, y: -14 }, { x: 14, y: -14 },
-                { x: -14, y: 14 }, { x: 14, y: 14 }
-            ];
-            const offset = offsets[playerId - 1];
-            
-            token.style.top = (cell.offsetTop + cell.offsetHeight / 2 - 14 + offset.y) + 'px';
-            token.style.left = (cell.offsetLeft + cell.offsetWidth / 2 - 14 + offset.x) + 'px';
+            const offsets = [{x:-12,y:-12}, {x:12,y:-12}, {x:-12,y:12}, {x:12,y:12}];
+            const off = offsets[playerId-1];
+            token.style.top = (cell.offsetTop + cell.offsetHeight/2 - 14 + off.y) + 'px';
+            token.style.left = (cell.offsetLeft + cell.offsetWidth/2 - 14 + off.x) + 'px';
         }
 
         function rollDice() {
@@ -398,12 +384,12 @@
             btn.disabled = true;
             let counter = 0;
             const anim = setInterval(() => {
-                display.innerText = Math.floor(Math.random() * 6) + 1;
-                if (++counter > 10) {
+                display.innerText = Math.floor(Math.random()*6)+1;
+                if (++counter > 12) {
                     clearInterval(anim);
-                    const finalRoll = Math.floor(Math.random() * 6) + 1;
-                    display.innerText = finalRoll;
-                    movePlayer(players[currentPlayerIndex], finalRoll);
+                    const roll = Math.floor(Math.random()*6)+1;
+                    display.innerText = roll;
+                    movePlayer(players[currentPlayerIndex], roll);
                 }
             }, 60);
         }
@@ -424,97 +410,164 @@
             const mTitle = document.getElementById('modal-title');
             const mDesc = document.getElementById('modal-desc');
             const mType = document.getElementById('modal-type');
-            const mOptions = document.getElementById('modal-options');
-            const mClose = document.getElementById('modal-close');
             const mInteract = document.getElementById('modal-interaction');
+            const mActions = document.getElementById('modal-actions');
 
-            mType.className = `inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 type-${space.type} text-white`;
+            mType.className = `inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 uppercase tracking-tighter text-white type-${space.type}`;
             mTitle.innerText = space.name;
-            mOptions.innerHTML = '';
             mInteract.innerHTML = '';
             mInteract.classList.add('hidden');
-            mClose.classList.add('hidden');
+            mActions.innerHTML = '';
 
             if (space.type === 'task') {
                 mDesc.innerText = space.scenario;
                 mInteract.classList.remove('hidden');
                 
-                if (space.taskType === 'action') {
-                    mInteract.innerHTML = `<div class="p-4 bg-orange-50 border-2 border-orange-200 rounded-2xl text-orange-700 text-center font-bold">👉 動作挑戰：${player.config.name}請展現你的演技！</div>`;
-                    mClose.innerText = "我做到了！領取心情幣";
-                    mClose.classList.remove('hidden');
-                } else if (space.taskType === 'input') {
-                    mInteract.innerHTML = `<textarea id="task-input" class="w-full p-4 border-2 border-blue-200 rounded-2xl text-sm" rows="3" placeholder="在這裡寫下你的點子..."></textarea>`;
-                    mClose.innerText = "儲存點子並領取心情幣";
-                    mClose.classList.remove('hidden');
+                if (space.taskType === 'input') {
+                    mInteract.innerHTML = `<textarea id="task-input" class="w-full p-4 border-2 border-indigo-200 rounded-2xl text-sm focus:border-indigo-500 outline-none" rows="3" placeholder="請在此輸入內容..."></textarea>`;
+                } else {
+                    mInteract.innerHTML = `<div class="p-6 bg-orange-50 border-2 border-orange-200 rounded-2xl text-orange-700 text-center font-bold text-xl">準備好模仿挑戰了嗎？</div>`;
                 }
-                
-                mClose.onclick = () => {
-                    updateCoins(player, space.reward, "完成任務");
-                    addBadge(player);
-                    mInteract.innerHTML = `<div class="p-4 bg-green-50 border-l-4 border-green-500 rounded text-green-800">${space.feedback}</div>`;
-                    mClose.innerText = "下一位玩家";
-                    mClose.onclick = () => { modal.classList.add('hidden'); nextTurn(); };
+
+                const submitBtn = document.createElement('button');
+                submitBtn.className = 'w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform';
+                submitBtn.innerText = "完成任務，請老師評分";
+                submitBtn.onclick = () => {
+                    // 點選後立刻禁用自己，防止連點
+                    submitBtn.disabled = true;
+                    const studentInput = space.taskType === 'input' ? document.getElementById('task-input').value : "已完成挑戰";
+                    showTeacherGrading(player, space, studentInput);
                 };
+                mActions.appendChild(submitBtn);
 
             } else if (space.scenario) {
                 mDesc.innerText = space.scenario;
                 space.options.forEach(opt => {
                     const btn = document.createElement('button');
-                    btn.className = 'option-btn font-medium bg-slate-50 hover:bg-blue-50';
-                    btn.innerHTML = `<div>${opt.text}</div><div class="text-[10px] text-slate-400 mt-1">報酬: $${opt.coins}</div>`;
+                    btn.className = 'option-btn font-medium bg-slate-50 p-4 border-2 border-slate-100 hover:border-blue-400 active:scale-[0.98] transition-all';
+                    btn.innerHTML = `<div>${opt.text}</div><div class="text-[10px] text-slate-400 mt-1">獎勵: $${opt.coins}</div>`;
+                    
                     btn.onclick = () => {
+                        // 【關鍵修正】一旦點選任一選項，立刻禁用所有選項按鈕
+                        const allBtns = mActions.querySelectorAll('button');
+                        allBtns.forEach(b => b.disabled = true);
+
                         updateCoins(player, opt.coins, "情境挑戰");
-                        mDesc.innerHTML = `<div class="p-4 bg-blue-50 border-l-4 border-blue-500 rounded text-blue-800">${opt.feedback}</div>`;
-                        mOptions.innerHTML = '';
-                        mClose.innerText = "我了解了";
-                        mClose.classList.remove('hidden');
+                        mDesc.innerHTML = `<div class="p-4 bg-blue-50 border-l-4 border-blue-500 rounded text-blue-800 font-medium">${opt.feedback}</div>`;
+                        
+                        // 清空並產生唯一的關閉按鈕
+                        mActions.innerHTML = '';
+                        const closeBtn = document.createElement('button');
+                        closeBtn.className = 'w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-md';
+                        closeBtn.innerText = "我知道了，換下一位";
+                        closeBtn.onclick = () => { 
+                            modal.classList.add('hidden'); 
+                            nextTurn(); 
+                        };
+                        mActions.appendChild(closeBtn);
                         addBadge(player);
-                        mClose.onclick = () => { modal.classList.add('hidden'); nextTurn(); };
                     };
-                    mOptions.appendChild(btn);
+                    mActions.appendChild(btn);
                 });
             } else if (space.isChance) {
-                const randomEvents = [
-                    { t: "好人好事", d: "你幫受傷的同學拿書包。獲得 150 心情幣", c: 150 },
-                    { t: "忘記帶作業", d: "心情變得很緊張。失去 100 心情幣", c: -100 },
-                    { t: "撿到 50 元", d: "雖然很開心，但應該交給老師。獲得 50 心情幣", c: 50 }
+                const events = [
+                    { t: "好人好事", d: "你幫同學搬作業，覺得很有成就感。獎勵 150 幣", c: 150 },
+                    { t: "忘記帶課本", d: "心情有點緊張，還好同學借你一起看。失去 100 幣", c: -100 },
+                    { t: "發現新風景", d: "在校園角落發現漂亮的花，心情變好了。獎勵 100 幣", c: 100 }
                 ];
-                const event = randomEvents[Math.floor(Math.random() * randomEvents.length)];
-                mTitle.innerText = `🎲 命運：${event.t}`;
-                mDesc.innerText = event.d;
-                updateCoins(player, event.c, "機會命運");
-                mClose.innerText = "接受命運";
-                mClose.classList.remove('hidden');
-                mClose.onclick = () => { modal.classList.add('hidden'); nextTurn(); };
+                const e = events[Math.floor(Math.random()*events.length)];
+                mTitle.innerText = "🎲 命運與機會";
+                mDesc.innerText = e.d;
+                updateCoins(player, e.c, "機會命運");
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'w-full bg-slate-700 text-white py-4 rounded-2xl font-bold';
+                closeBtn.innerText = "接受命運";
+                closeBtn.onclick = () => { modal.classList.add('hidden'); nextTurn(); };
+                mActions.appendChild(closeBtn);
             } else {
                 mDesc.innerText = space.desc;
-                mClose.innerText = "我知道了";
-                mClose.classList.remove('hidden');
-                if (space.id === 18) setTimeout(() => movePlayer(player, -3), 1500);
-                if (space.id === 23) setTimeout(() => { player.pos = 0; updatePlayerPositionUI(player.id, 0); updateCoins(player, 200, "特殊傳送"); }, 1500);
-                mClose.onclick = () => { modal.classList.add('hidden'); nextTurn(); };
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'w-full bg-slate-700 text-white py-4 rounded-2xl font-bold';
+                closeBtn.innerText = "我準備好了";
+                closeBtn.onclick = () => {
+                    modal.classList.add('hidden');
+                    if (space.id === 18) {
+                        setTimeout(() => movePlayer(player, -3), 500);
+                    } else if (space.id === 23) {
+                        player.pos = 0;
+                        updatePlayerPositionUI(player.id, 0);
+                        updateCoins(player, 200, "特殊傳送");
+                        nextTurn();
+                    } else {
+                        nextTurn();
+                    }
+                };
+                mActions.appendChild(closeBtn);
             }
             modal.classList.remove('hidden');
         }
 
+        function showTeacherGrading(player, space, input) {
+            const mDesc = document.getElementById('modal-desc');
+            const mInteract = document.getElementById('modal-interaction');
+            const mActions = document.getElementById('modal-actions');
+
+            mDesc.innerHTML = `<div class="mb-4 text-sm font-bold text-indigo-800">【學生的回答】</div>
+                              <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl mb-6 text-slate-700 italic">"${input || '(無內容)'}"</div>
+                              <div class="text-center font-bold text-slate-500 border-t pt-4">👩‍🏫 請老師根據表現點選評語：</div>`;
+            mInteract.classList.add('hidden');
+            mActions.innerHTML = '';
+
+            const grades = [
+                { label: "⭐ 棒極了 (+1.5倍)", factor: 1.5, color: "bg-amber-500", log: "表現極佳！" },
+                { label: "✅ 很好 (+1倍)", factor: 1.0, color: "bg-emerald-500", log: "回答得很棒。" },
+                { label: "💡 再加油 (+0.5倍)", factor: 0.5, color: "bg-blue-400", log: "還有進步空間。" }
+            ];
+
+            grades.forEach(g => {
+                const btn = document.createElement('button');
+                btn.className = `w-full ${g.color} text-white py-3 rounded-xl font-bold shadow transition-transform active:scale-95`;
+                btn.innerText = g.label;
+                btn.onclick = () => {
+                    // 點擊評分後立刻清除所有評分按鈕，防止重複評分
+                    mActions.innerHTML = '';
+                    
+                    const finalCoins = Math.round(space.reward * g.factor);
+                    updateCoins(player, finalCoins, "任務評分");
+                    addLog(`${player.config.name} 在「${space.name}」中${g.log} (回答：${input || '無'})`);
+                    addBadge(player);
+                    
+                    mDesc.innerHTML = `<div class="p-6 text-center"><div class="text-4xl mb-4">🎉</div><div class="text-xl font-bold text-slate-800">${space.feedback}</div><div class="mt-2 text-indigo-600 font-bold">+ ${finalCoins} 心情幣</div></div>`;
+                    
+                    const finalClose = document.createElement('button');
+                    finalClose.className = 'w-full bg-slate-800 text-white py-4 rounded-2xl font-bold mt-4';
+                    finalClose.innerText = "完成結算，換下一位";
+                    finalClose.onclick = () => { 
+                        document.getElementById('modal').classList.add('hidden'); 
+                        nextTurn(); 
+                    };
+                    mActions.appendChild(finalClose);
+                };
+                mActions.appendChild(btn);
+            });
+        }
+
         function updateCoins(player, amount, reason) {
             player.coins += amount;
-            const display = document.getElementById(`p${player.id}-coins-display`);
-            if (display) display.innerText = `$ ${player.coins}`;
+            renderPlayerCards();
             addLog(`${player.config.name} ${reason}：${amount > 0 ? '+' : ''}${amount} 心情幣`);
         }
 
         function addBadge(player) {
             player.badges++;
-            renderPlayerCards(); // 重繪卡片以顯示徽章
+            renderPlayerCards();
         }
 
         function addLog(msg) {
             const log = document.getElementById('history-log');
             const p = document.createElement('p');
-            p.className = 'border-b border-amber-100 pb-1';
-            p.innerText = `• ${msg}`;
+            p.className = 'border-b border-amber-100 pb-1 leading-tight';
+            p.innerHTML = `<span class="text-amber-500">▶</span> ${msg}`;
             log.prepend(p);
         }
 
@@ -528,12 +581,12 @@
         function updateTurnDisplay() {
             const p = players[currentPlayerIndex];
             const display = document.getElementById('turn-display');
-            display.innerText = `輪到 ${p.config.name} (${p.config.emoji})`;
+            display.innerText = `輪到 ${p.config.name}`;
             display.style.color = p.config.color;
             document.getElementById('dice-result').innerText = '?';
         }
 
-        // --- 老師控制台 ---
+        // --- 老師控制台邏輯 ---
         function showTeacherPanel() {
             document.getElementById('setting-player-count').value = numPlayers;
             const list = document.getElementById('editor-list');
@@ -541,16 +594,16 @@
             boardData.forEach((space, index) => {
                 if (['special'].includes(space.type) || space.isChance) return;
                 const item = document.createElement('div');
-                item.className = 'bg-slate-50 p-6 rounded-2xl border border-slate-200';
+                item.className = 'bg-slate-50 p-5 rounded-2xl border border-slate-200';
                 let interactionHtml = '';
                 if (space.type === 'task') {
-                    interactionHtml = `<div class="grid grid-cols-2 gap-4 mt-3"><div><label class="text-[10px] font-bold text-slate-400">獎勵幣</label><input type="number" value="${space.reward}" class="w-full p-2 border rounded text-sm" onchange="updateTempData(${index}, 'reward', this.value)"></div><div><label class="text-[10px] font-bold text-slate-400">回饋語</label><input type="text" value="${space.feedback}" class="w-full p-2 border rounded text-sm" onchange="updateTempData(${index}, 'feedback', this.value)"></div></div>`;
+                    interactionHtml = `<div class="grid grid-cols-2 gap-4 mt-3"><div><label class="text-[10px] font-bold text-slate-400">標準獎勵幣</label><input type="number" value="${space.reward}" class="w-full p-2 border rounded text-sm" onchange="updateTempData(${index}, 'reward', this.value)"></div><div><label class="text-[10px] font-bold text-slate-400">任務回饋語</label><input type="text" value="${space.feedback}" class="w-full p-2 border rounded text-sm" onchange="updateTempData(${index}, 'feedback', this.value)"></div></div>`;
                 } else if (space.scenario) {
                     space.options.forEach((opt, oi) => {
                         interactionHtml += `<div class="flex gap-2 mt-2 items-center"><span class="text-[10px] text-slate-400">選${oi+1}</span><input type="text" value="${opt.text}" class="flex-1 p-2 border rounded text-xs" onchange="updateTempData(${index}, 'opt-text', this.value, ${oi})"><input type="number" value="${opt.coins}" class="w-16 p-2 border rounded text-xs" onchange="updateTempData(${index}, 'opt-coins', this.value, ${oi})"></div>`;
                     });
                 }
-                item.innerHTML = `<div class="flex justify-between items-center mb-3"><span class="text-xs font-bold text-indigo-500">格子 ${index} [${space.type}]</span><select class="text-xs p-1 border rounded" onchange="updateTempData(${index}, 'type', this.value)"><option value="joy" ${space.type==='joy'?'selected':''}>喜</option><option value="anger" ${space.type==='anger'?'selected':''}>怒</option><option value="sad" ${space.type==='sad'?'selected':''}>哀</option><option value="fear" ${space.type==='fear'?'selected':''}>懼</option><option value="task" ${space.type==='task'?'selected':''}>任務</option></select></div><input type="text" value="${space.name}" class="w-full p-2 mb-2 border rounded font-bold" onchange="updateTempData(${index}, 'name', this.value)"><textarea class="w-full p-2 border rounded text-sm" onchange="updateTempData(${index}, 'scenario', this.value)">${space.scenario || space.desc}</textarea>${interactionHtml}`;
+                item.innerHTML = `<div class="flex justify-between items-center mb-2"><span class="text-xs font-bold text-indigo-500">格子 ${index}</span></div><input type="text" value="${space.name}" class="w-full p-2 mb-2 border rounded font-bold" onchange="updateTempData(${index}, 'name', this.value)"><textarea class="w-full p-2 border rounded text-sm" onchange="updateTempData(${index}, 'scenario', this.value)">${space.scenario || space.desc}</textarea>${interactionHtml}`;
                 list.appendChild(item);
             });
             document.getElementById('teacher-modal').classList.remove('hidden');
@@ -561,7 +614,6 @@
             if (!tempBoardData) tempBoardData = JSON.parse(JSON.stringify(boardData));
             const target = tempBoardData[idx];
             if (field === 'name') target.name = val;
-            if (field === 'type') target.type = val;
             if (field === 'scenario') { if(target.scenario) target.scenario = val; else target.desc = val; }
             if (field === 'reward') target.reward = parseInt(val);
             if (field === 'feedback') target.feedback = val;
@@ -572,27 +624,15 @@
         function saveCustomData() {
             const newCount = parseInt(document.getElementById('setting-player-count').value);
             const countChanged = newCount !== numPlayers;
-            
             numPlayers = newCount;
-            if (tempBoardData) {
-                boardData = JSON.parse(JSON.stringify(tempBoardData));
-                tempBoardData = null;
-            }
-            
-            // 如果人數變了，重置遊戲
-            if (countChanged) {
-                initGame();
-            } else {
-                initBoard();
-                renderPlayerCards();
-            }
-            
+            if (tempBoardData) { boardData = JSON.parse(JSON.stringify(tempBoardData)); tempBoardData = null; }
+            if (countChanged) initGame(); else { initBoard(); renderPlayerCards(); }
             closeTeacherPanel();
-            showToast("設定與題目已更新！");
+            showToast("老師，設定已生效！");
         }
 
         function closeTeacherPanel() { document.getElementById('teacher-modal').classList.add('hidden'); }
-        function showHelp() { alert("擲骰子前進，遇到情緒情境請思考或執行動作。賺取最多心情幣並討論應對方式！"); }
+        function showHelp() { alert("擲骰子移動，遇到任務時請認真回答或表演，由老師給予評分領取心情幣！"); }
         function resetGame() { if (confirm("確定重置遊戲？進度將消失。")) initGame(); }
         function showToast(m) { const t = document.createElement('div'); t.className = 'fixed bottom-10 bg-slate-800 text-white px-6 py-2 rounded-full z-[200] animate-bounce'; t.innerText = m; document.body.appendChild(t); setTimeout(()=>t.remove(), 2000); }
         function showCellInfo(index) {
