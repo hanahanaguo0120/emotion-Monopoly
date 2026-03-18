@@ -56,7 +56,7 @@
         .type-fear { background-color: #a78bfa; }   
         .type-calm { background-color: #4ade80; }   
         .type-special { background-color: #94a3b8; } 
-        .type-task { background-color: #f97316; } /* 任務 - 橘 */
+        .type-task { background-color: #f97316; } 
 
         .center-area {
             grid-column: 2 / 7;
@@ -83,6 +83,7 @@
             align-items: center;
             justify-content: center;
             font-size: 16px;
+            color: white;
         }
 
         .dice-btn {
@@ -152,9 +153,7 @@
     <div class="flex gap-6 items-start">
         <!-- 左側：遊戲地圖 -->
         <div class="board-grid shadow-2xl border-4 border-white" id="board">
-            <!-- 棋子 -->
-            <div id="p1-token" class="player-token bg-red-500 animate-player" style="display: none;">🦁</div>
-            <div id="p2-token" class="player-token bg-blue-500 animate-player" style="display: none;">🐬</div>
+            <!-- 棋子將由 JS 動態生成 -->
             
             <!-- 中央區域 -->
             <div class="center-area border-4 border-dashed border-slate-300">
@@ -165,46 +164,8 @@
         </div>
 
         <!-- 右側：玩家狀態欄 -->
-        <div class="flex flex-col gap-4 w-80">
-            <!-- 玩家 1 -->
-            <div id="p1-card" class="bg-white p-5 rounded-2xl border-2 border-red-500 shadow-lg transition-all relative overflow-hidden">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="font-bold text-xl text-red-600">玩家 1 🦁</span>
-                    <span id="p1-coins" class="font-mono text-2xl font-bold text-slate-800">$ 1000</span>
-                </div>
-                <div class="mt-4">
-                    <div class="flex justify-between text-[11px] text-slate-400 uppercase font-bold mb-1">
-                        <span>心情章節進度</span>
-                        <span id="p1-badge-count">0</span>
-                    </div>
-                    <div id="p1-badges" class="flex gap-2 mt-1 min-h-[40px] items-center p-2 bg-slate-50 rounded-xl flex-wrap"></div>
-                </div>
-            </div>
-
-            <!-- 玩家 2 -->
-            <div id="p2-card" class="bg-white p-5 rounded-2xl border-2 border-slate-200 shadow-md opacity-50 transition-all relative overflow-hidden">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="font-bold text-xl text-blue-600">玩家 2 🐬</span>
-                    <span id="p2-coins" class="font-mono text-2xl font-bold text-slate-800">$ 1000</span>
-                </div>
-                <div class="mt-4">
-                    <div class="flex justify-between text-[11px] text-slate-400 uppercase font-bold mb-1">
-                        <span>心情章節進度</span>
-                        <span id="p2-badge-count">0</span>
-                    </div>
-                    <div id="p2-badges" class="flex gap-2 mt-1 min-h-[40px] items-center p-2 bg-slate-50 rounded-xl flex-wrap"></div>
-                </div>
-            </div>
-
-            <!-- 教師筆記區 -->
-            <div class="mt-4 p-5 bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-200 shadow-sm">
-                <h4 class="font-bold text-amber-800 text-sm mb-2 flex items-center">
-                    <span class="mr-2">💡</span> 教師小筆記
-                </h4>
-                <div id="history-log" class="text-[11px] text-amber-700 space-y-2 max-h-40 overflow-y-auto custom-scroll">
-                    <p>「歡迎來到冒險王！準備好探索內心世界了嗎？」</p>
-                </div>
-            </div>
+        <div class="flex flex-col gap-4 w-80" id="player-status-container">
+            <!-- 玩家卡片將由 JS 動態生成 -->
         </div>
     </div>
 
@@ -216,9 +177,7 @@
                 <h2 id="modal-title" class="text-2xl font-bold mb-4 text-slate-800">標題</h2>
                 <div id="modal-body">
                     <p id="modal-desc" class="text-slate-600 mb-6 text-lg leading-relaxed">內容描述</p>
-                    <div id="modal-interaction" class="mb-6 hidden">
-                        <!-- 這裡會動態放入 Input 或 動作說明 -->
-                    </div>
+                    <div id="modal-interaction" class="mb-6 hidden"></div>
                 </div>
                 <div id="modal-options" class="flex flex-col space-y-3"></div>
             </div>
@@ -231,28 +190,46 @@
         <div class="bg-white rounded-3xl p-8 max-w-5xl w-full shadow-2xl mx-4 h-[85vh] flex flex-col">
             <div class="flex justify-between items-center mb-6">
                 <div>
-                    <h2 class="text-2xl font-bold text-indigo-800">⚙️ 教師題目編輯中心</h2>
-                    <p class="text-xs text-slate-500">在此修改每一格的題目、類型與心情幣獎勵</p>
+                    <h2 class="text-2xl font-bold text-indigo-800">⚙️ 教師控制中心</h2>
+                    <p class="text-xs text-slate-500">設定人數與編輯題目內容</p>
                 </div>
                 <button onclick="closeTeacherPanel()" class="text-slate-400 hover:text-slate-600 text-3xl font-light">&times;</button>
             </div>
             
+            <!-- 設定區 -->
+            <div class="bg-indigo-50 p-4 rounded-2xl mb-6 flex items-center gap-6">
+                <div class="flex items-center gap-3">
+                    <label class="font-bold text-indigo-900">遊玩人數：</label>
+                    <select id="setting-player-count" class="p-2 rounded-lg border border-indigo-200">
+                        <option value="2">2 人</option>
+                        <option value="3">3 人</option>
+                        <option value="4">4 人</option>
+                    </select>
+                </div>
+                <div class="text-xs text-indigo-600">注意：變更人數會重置當前遊戲進度。</div>
+            </div>
+
             <div class="flex-1 overflow-y-auto pr-4 custom-scroll">
+                <h3 class="font-bold text-slate-700 mb-4 border-l-4 border-indigo-500 pl-2">地圖題目編輯</h3>
                 <div id="editor-list" class="space-y-6"></div>
             </div>
 
-            <div class="mt-6 pt-4 border-t flex justify-between items-center">
-                <p class="text-xs text-slate-400 italic">* 修改後請務必點擊儲存，地圖才會更新喔！</p>
-                <div class="flex gap-3">
-                    <button onclick="closeTeacherPanel()" class="px-6 py-2 border rounded-xl hover:bg-slate-50">取消</button>
-                    <button onclick="saveCustomData()" class="px-10 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 shadow-md">儲存並更新地圖</button>
-                </div>
+            <div class="mt-6 pt-4 border-t flex justify-end gap-3">
+                <button onclick="closeTeacherPanel()" class="px-6 py-2 border rounded-xl hover:bg-slate-50">取消</button>
+                <button onclick="saveCustomData()" class="px-10 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 shadow-md">儲存設定與地圖</button>
             </div>
         </div>
     </div>
 
     <script>
-        // 初始題目資料
+        // 初始設定
+        const PLAYER_CONFIG = [
+            { id: 1, name: "玩家 1", emoji: "🦁", color: "#ef4444", border: "border-red-500" },
+            { id: 2, name: "玩家 2", emoji: "🐬", color: "#3b82f6", border: "border-blue-500" },
+            { id: 3, name: "玩家 3", emoji: "🐼", color: "#10b981", border: "border-emerald-500" },
+            { id: 4, name: "玩家 4", emoji: "🦊", color: "#f59e0b", border: "border-amber-500" }
+        ];
+
         const DEFAULT_DATA = [
             { id: 0, name: "起點", type: "special", desc: "重新整理情緒，領取 200 心情幣" },
             { id: 1, name: "弄丟文具", type: "sad", scenario: "你最喜歡的原子筆不見了，那可是生日禮物...", options: [
@@ -305,15 +282,33 @@
         ];
 
         let boardData = JSON.parse(JSON.stringify(DEFAULT_DATA));
-        let currentPlayer = 1;
-        let p1Pos = 0, p2Pos = 0;
-        let p1Coins = 1000, p2Coins = 1000;
-        let p1Badges = 0, p2Badges = 0;
+        let numPlayers = 2; // 預設 2 人
+        let players = [];
+        let currentPlayerIndex = 0;
         const totalSpaces = 24;
+
+        function initGame() {
+            // 初始化玩家資料
+            players = [];
+            for (let i = 0; i < numPlayers; i++) {
+                players.push({
+                    id: i + 1,
+                    config: PLAYER_CONFIG[i],
+                    pos: 0,
+                    coins: 1000,
+                    badges: 0
+                });
+            }
+            currentPlayerIndex = 0;
+            
+            initBoard();
+            renderPlayerCards();
+            updateTurnDisplay();
+        }
 
         function initBoard() {
             const board = document.getElementById('board');
-            board.querySelectorAll('.cell').forEach(c => c.remove());
+            board.querySelectorAll('.cell, .player-token').forEach(c => c.remove());
 
             const positions = [
                 [7,1], [7,2], [7,3], [7,4], [7,5], [7,6], [7,7],
@@ -342,18 +337,59 @@
                 board.appendChild(cell);
             });
 
-            updatePlayerPosition(1, p1Pos);
-            updatePlayerPosition(2, p2Pos);
+            // 生成棋子
+            players.forEach((p, i) => {
+                const token = document.createElement('div');
+                token.id = `p${p.id}-token`;
+                token.className = `player-token animate-player`;
+                token.style.backgroundColor = p.config.color;
+                token.innerText = p.config.emoji;
+                board.appendChild(token);
+                updatePlayerPositionUI(p.id, p.pos);
+            });
         }
 
-        function updatePlayerPosition(player, pos) {
-            const token = document.getElementById(`p${player}-token`);
+        function renderPlayerCards() {
+            const container = document.getElementById('player-status-container');
+            container.innerHTML = '';
+
+            players.forEach((p, i) => {
+                const activeClass = (i === currentPlayerIndex) ? p.config.border + " shadow-lg scale-105 opacity-100" : "border-slate-200 opacity-50";
+                const card = `
+                    <div id="player-card-${p.id}" class="bg-white p-5 rounded-2xl border-2 transition-all relative overflow-hidden ${activeClass}">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold text-xl" style="color: ${p.config.color}">${p.config.name} ${p.config.emoji}</span>
+                            <span id="p${p.id}-coins-display" class="font-mono text-2xl font-bold text-slate-800">$ ${p.coins}</span>
+                        </div>
+                        <div class="mt-4">
+                            <div class="flex justify-between text-[11px] text-slate-400 uppercase font-bold mb-1">
+                                <span>心情章節進度</span>
+                                <span id="p${p.id}-badge-count">${p.badges}</span>
+                            </div>
+                            <div id="p${p.id}-badges-container" class="flex gap-2 mt-1 min-h-[40px] items-center p-2 bg-slate-50 rounded-xl flex-wrap">
+                                ${Array(p.badges).fill(0).map(() => `<span class="w-7 h-7 bg-orange-500 rounded-lg flex items-center justify-center text-xs text-white">🎯</span>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += card;
+            });
+        }
+
+        function updatePlayerPositionUI(playerId, pos) {
+            const token = document.getElementById(`p${playerId}-token`);
             const cell = document.getElementById(`cell-${pos}`);
-            if(!cell) return;
-            token.style.display = 'flex';
-            const offset = (player === 1) ? -14 : 14;
-            token.style.top = (cell.offsetTop + cell.offsetHeight / 2 - 14 + offset) + 'px';
-            token.style.left = (cell.offsetLeft + cell.offsetWidth / 2 - 14 + offset) + 'px';
+            if(!token || !cell) return;
+            
+            // 根據玩家 ID 稍微偏移位置，避免重疊
+            const offsets = [
+                { x: -14, y: -14 }, { x: 14, y: -14 },
+                { x: -14, y: 14 }, { x: 14, y: 14 }
+            ];
+            const offset = offsets[playerId - 1];
+            
+            token.style.top = (cell.offsetTop + cell.offsetHeight / 2 - 14 + offset.y) + 'px';
+            token.style.left = (cell.offsetLeft + cell.offsetWidth / 2 - 14 + offset.x) + 'px';
         }
 
         function rollDice() {
@@ -367,21 +403,19 @@
                     clearInterval(anim);
                     const finalRoll = Math.floor(Math.random() * 6) + 1;
                     display.innerText = finalRoll;
-                    movePlayer(currentPlayer, finalRoll);
+                    movePlayer(players[currentPlayerIndex], finalRoll);
                 }
             }, 60);
         }
 
         async function movePlayer(player, steps) {
-            let currentPos = (player === 1) ? p1Pos : p2Pos;
             for (let i = 0; i < steps; i++) {
-                currentPos = (currentPos + 1) % totalSpaces;
-                updatePlayerPosition(player, currentPos);
-                if (currentPos === 0) updateCoins(player, 200, "通過起點");
+                player.pos = (player.pos + 1) % totalSpaces;
+                updatePlayerPositionUI(player.id, player.pos);
+                if (player.pos === 0) updateCoins(player, 200, "通過起點");
                 await new Promise(r => setTimeout(r, 200));
             }
-            if (player === 1) p1Pos = currentPos; else p2Pos = currentPos;
-            handleLanding(player, currentPos);
+            handleLanding(player, player.pos);
         }
 
         function handleLanding(player, pos) {
@@ -406,25 +440,20 @@
                 mInteract.classList.remove('hidden');
                 
                 if (space.taskType === 'action') {
-                    mInteract.innerHTML = `<div class="p-4 bg-orange-50 border-2 border-orange-200 rounded-2xl text-orange-700 text-center font-bold">👉 動作準備好了嗎？請對著大家展現你的演技吧！</div>`;
+                    mInteract.innerHTML = `<div class="p-4 bg-orange-50 border-2 border-orange-200 rounded-2xl text-orange-700 text-center font-bold">👉 動作挑戰：${player.config.name}請展現你的演技！</div>`;
                     mClose.innerText = "我做到了！領取心情幣";
                     mClose.classList.remove('hidden');
                 } else if (space.taskType === 'input') {
                     mInteract.innerHTML = `<textarea id="task-input" class="w-full p-4 border-2 border-blue-200 rounded-2xl text-sm" rows="3" placeholder="在這裡寫下你的點子..."></textarea>`;
-                    mClose.innerText = "寫好了！儲存並領取心情幣";
+                    mClose.innerText = "儲存點子並領取心情幣";
                     mClose.classList.remove('hidden');
                 }
                 
                 mClose.onclick = () => {
-                    const feedbackMsg = space.taskType === 'input' ? 
-                        `【紀錄】玩家${player}的想法：${document.getElementById('task-input').value || '未填寫'}` : 
-                        `【動作】玩家${player}完成了模仿挑戰！`;
-                    addLog(feedbackMsg);
                     updateCoins(player, space.reward, "完成任務");
-                    addBadge(player, space.type);
-                    
+                    addBadge(player);
                     mInteract.innerHTML = `<div class="p-4 bg-green-50 border-l-4 border-green-500 rounded text-green-800">${space.feedback}</div>`;
-                    mClose.innerText = "關閉";
+                    mClose.innerText = "下一位玩家";
                     mClose.onclick = () => { modal.classList.add('hidden'); nextTurn(); };
                 };
 
@@ -435,12 +464,12 @@
                     btn.className = 'option-btn font-medium bg-slate-50 hover:bg-blue-50';
                     btn.innerHTML = `<div>${opt.text}</div><div class="text-[10px] text-slate-400 mt-1">報酬: $${opt.coins}</div>`;
                     btn.onclick = () => {
-                        updateCoins(player, opt.coins, "情境回饋");
+                        updateCoins(player, opt.coins, "情境挑戰");
                         mDesc.innerHTML = `<div class="p-4 bg-blue-50 border-l-4 border-blue-500 rounded text-blue-800">${opt.feedback}</div>`;
                         mOptions.innerHTML = '';
-                        mClose.innerText = "我知道了";
+                        mClose.innerText = "我了解了";
                         mClose.classList.remove('hidden');
-                        addBadge(player, space.type);
+                        addBadge(player);
                         mClose.onclick = () => { modal.classList.add('hidden'); nextTurn(); };
                     };
                     mOptions.appendChild(btn);
@@ -463,28 +492,22 @@
                 mClose.innerText = "我知道了";
                 mClose.classList.remove('hidden');
                 if (space.id === 18) setTimeout(() => movePlayer(player, -3), 1500);
-                if (space.id === 23) setTimeout(() => { if (player === 1) p1Pos = 0; else p2Pos = 0; updatePlayerPosition(player, 0); updateCoins(player, 200, "特殊傳送"); }, 1500);
+                if (space.id === 23) setTimeout(() => { player.pos = 0; updatePlayerPositionUI(player.id, 0); updateCoins(player, 200, "特殊傳送"); }, 1500);
                 mClose.onclick = () => { modal.classList.add('hidden'); nextTurn(); };
             }
             modal.classList.remove('hidden');
         }
 
         function updateCoins(player, amount, reason) {
-            if (player === 1) { p1Coins += amount; document.getElementById('p1-coins').innerText = `$ ${p1Coins}`; }
-            else { p2Coins += amount; document.getElementById('p2-coins').innerText = `$ ${p2Coins}`; }
-            addLog(`玩家${player} ${reason}：${amount > 0 ? '+' : ''}${amount} 心情幣`);
+            player.coins += amount;
+            const display = document.getElementById(`p${player.id}-coins-display`);
+            if (display) display.innerText = `$ ${player.coins}`;
+            addLog(`${player.config.name} ${reason}：${amount > 0 ? '+' : ''}${amount} 心情幣`);
         }
 
-        function addBadge(player, type) {
-            if (['special', 'calm'].includes(type)) return;
-            const container = document.getElementById(`p${player}-badges`);
-            const badge = document.createElement('span');
-            badge.className = `w-8 h-8 rounded-xl type-${type} flex items-center justify-center text-sm shadow-sm border border-white`;
-            const emojiMap = { joy: '😊', anger: '🔥', sad: '💧', fear: '😨', task: '🎯' };
-            badge.innerText = emojiMap[type] || '✨';
-            container.appendChild(badge);
-            if (player === 1) p1Badges++; else p2Badges++;
-            document.getElementById(`p${player}-badge-count`).innerText = player === 1 ? p1Badges : p2Badges;
+        function addBadge(player) {
+            player.badges++;
+            renderPlayerCards(); // 重繪卡片以顯示徽章
         }
 
         function addLog(msg) {
@@ -496,16 +519,23 @@
         }
 
         function nextTurn() {
-            currentPlayer = (currentPlayer === 1) ? 2 : 1;
-            document.getElementById('turn-display').innerText = `Player ${currentPlayer} Turn`;
-            document.getElementById('dice-result').innerText = '?';
+            currentPlayerIndex = (currentPlayerIndex + 1) % numPlayers;
+            updateTurnDisplay();
+            renderPlayerCards();
             document.getElementById('roll-btn').disabled = false;
-            document.getElementById('p1-card').style.opacity = (currentPlayer === 1) ? '1' : '0.5';
-            document.getElementById('p2-card').style.opacity = (currentPlayer === 2) ? '1' : '0.5';
+        }
+
+        function updateTurnDisplay() {
+            const p = players[currentPlayerIndex];
+            const display = document.getElementById('turn-display');
+            display.innerText = `輪到 ${p.config.name} (${p.config.emoji})`;
+            display.style.color = p.config.color;
+            document.getElementById('dice-result').innerText = '?';
         }
 
         // --- 老師控制台 ---
         function showTeacherPanel() {
+            document.getElementById('setting-player-count').value = numPlayers;
             const list = document.getElementById('editor-list');
             list.innerHTML = '';
             boardData.forEach((space, index) => {
@@ -514,12 +544,7 @@
                 item.className = 'bg-slate-50 p-6 rounded-2xl border border-slate-200';
                 let interactionHtml = '';
                 if (space.type === 'task') {
-                    interactionHtml = `
-                        <div class="grid grid-cols-2 gap-4 mt-3">
-                            <div><label class="text-[10px] font-bold text-slate-400">任務獎勵幣</label><input type="number" value="${space.reward}" class="w-full p-2 border rounded text-sm" onchange="updateTempData(${index}, 'reward', this.value)"></div>
-                            <div><label class="text-[10px] font-bold text-slate-400">任務回饋語</label><input type="text" value="${space.feedback}" class="w-full p-2 border rounded text-sm" onchange="updateTempData(${index}, 'feedback', this.value)"></div>
-                        </div>
-                    `;
+                    interactionHtml = `<div class="grid grid-cols-2 gap-4 mt-3"><div><label class="text-[10px] font-bold text-slate-400">獎勵幣</label><input type="number" value="${space.reward}" class="w-full p-2 border rounded text-sm" onchange="updateTempData(${index}, 'reward', this.value)"></div><div><label class="text-[10px] font-bold text-slate-400">回饋語</label><input type="text" value="${space.feedback}" class="w-full p-2 border rounded text-sm" onchange="updateTempData(${index}, 'feedback', this.value)"></div></div>`;
                 } else if (space.scenario) {
                     space.options.forEach((opt, oi) => {
                         interactionHtml += `<div class="flex gap-2 mt-2 items-center"><span class="text-[10px] text-slate-400">選${oi+1}</span><input type="text" value="${opt.text}" class="flex-1 p-2 border rounded text-xs" onchange="updateTempData(${index}, 'opt-text', this.value, ${oi})"><input type="number" value="${opt.coins}" class="w-16 p-2 border rounded text-xs" onchange="updateTempData(${index}, 'opt-coins', this.value, ${oi})"></div>`;
@@ -545,16 +570,37 @@
         }
 
         function saveCustomData() {
-            if (tempBoardData) { boardData = JSON.parse(JSON.stringify(tempBoardData)); initBoard(); tempBoardData = null; }
+            const newCount = parseInt(document.getElementById('setting-player-count').value);
+            const countChanged = newCount !== numPlayers;
+            
+            numPlayers = newCount;
+            if (tempBoardData) {
+                boardData = JSON.parse(JSON.stringify(tempBoardData));
+                tempBoardData = null;
+            }
+            
+            // 如果人數變了，重置遊戲
+            if (countChanged) {
+                initGame();
+            } else {
+                initBoard();
+                renderPlayerCards();
+            }
+            
             closeTeacherPanel();
-            showToast("地圖資料更新完成！");
+            showToast("設定與題目已更新！");
         }
 
         function closeTeacherPanel() { document.getElementById('teacher-modal').classList.add('hidden'); }
-        function showHelp() { handleLanding(-1, -1); /* 偷懶直接重用UI但改邏輯即可，這裡先略過複雜教學 */ alert("擲骰子前進，遇到情境請思考或執行動作，賺取最多心情幣吧！"); }
-        function resetGame() { if (confirm("確定重置？資料將消失。")) location.reload(); }
+        function showHelp() { alert("擲骰子前進，遇到情緒情境請思考或執行動作。賺取最多心情幣並討論應對方式！"); }
+        function resetGame() { if (confirm("確定重置遊戲？進度將消失。")) initGame(); }
         function showToast(m) { const t = document.createElement('div'); t.className = 'fixed bottom-10 bg-slate-800 text-white px-6 py-2 rounded-full z-[200] animate-bounce'; t.innerText = m; document.body.appendChild(t); setTimeout(()=>t.remove(), 2000); }
-        window.onload = initBoard;
+        function showCellInfo(index) {
+            const space = boardData[index];
+            alert(`【${space.name}】\n${space.scenario || space.desc}`);
+        }
+
+        window.onload = initGame;
     </script>
 </body>
 </html>
