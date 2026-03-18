@@ -147,7 +147,7 @@
             <p class="text-sm text-red-500 font-bold mt-1">小花老師的心理教室 🗂️</p>
         </div>
         <div class="flex gap-2">
-            <button onclick="resetGame()" class="bg-rose-500 hover:bg-rose-400 text-white px-4 py-1.5 rounded-lg text-sm transition-colors font-bold">重置遊戲</button>
+            <button id="reset-main-btn" onclick="confirmReset()" class="bg-rose-500 hover:bg-rose-400 text-white px-4 py-1.5 rounded-lg text-sm transition-colors font-bold">重置遊戲</button>
         </div>
     </div>
 
@@ -433,7 +433,6 @@
                 submitBtn.className = 'w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform';
                 submitBtn.innerText = "完成任務，請老師評分";
                 submitBtn.onclick = () => {
-                    // 點選後立刻禁用自己，防止連點
                     submitBtn.disabled = true;
                     const studentInput = space.taskType === 'input' ? document.getElementById('task-input').value : "已完成挑戰";
                     showTeacherGrading(player, space, studentInput);
@@ -448,14 +447,12 @@
                     btn.innerHTML = `<div>${opt.text}</div><div class="text-[10px] text-slate-400 mt-1">獎勵: $${opt.coins}</div>`;
                     
                     btn.onclick = () => {
-                        // 【關鍵修正】一旦點選任一選項，立刻禁用所有選項按鈕
                         const allBtns = mActions.querySelectorAll('button');
                         allBtns.forEach(b => b.disabled = true);
 
                         updateCoins(player, opt.coins, "情境挑戰");
                         mDesc.innerHTML = `<div class="p-4 bg-blue-50 border-l-4 border-blue-500 rounded text-blue-800 font-medium">${opt.feedback}</div>`;
                         
-                        // 清空並產生唯一的關閉按鈕
                         mActions.innerHTML = '';
                         const closeBtn = document.createElement('button');
                         closeBtn.className = 'w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-md';
@@ -529,9 +526,7 @@
                 btn.className = `w-full ${g.color} text-white py-3 rounded-xl font-bold shadow transition-transform active:scale-95`;
                 btn.innerText = g.label;
                 btn.onclick = () => {
-                    // 點擊評分後立刻清除所有評分按鈕，防止重複評分
                     mActions.innerHTML = '';
-                    
                     const finalCoins = Math.round(space.reward * g.factor);
                     updateCoins(player, finalCoins, "任務評分");
                     addLog(`${player.config.name} 在「${space.name}」中${g.log} (回答：${input || '無'})`);
@@ -632,12 +627,96 @@
         }
 
         function closeTeacherPanel() { document.getElementById('teacher-modal').classList.add('hidden'); }
-        function showHelp() { alert("擲骰子移動，遇到任務時請認真回答或表演，由老師給予評分領取心情幣！"); }
-        function resetGame() { if (confirm("確定重置遊戲？進度將消失。")) initGame(); }
-        function showToast(m) { const t = document.createElement('div'); t.className = 'fixed bottom-10 bg-slate-800 text-white px-6 py-2 rounded-full z-[200] animate-bounce'; t.innerText = m; document.body.appendChild(t); setTimeout(()=>t.remove(), 2000); }
+
+        // --- 取代 alert / confirm 的自定義 Modal 函式 ---
+        function showHelp() {
+            const modal = document.getElementById('modal');
+            const mTitle = document.getElementById('modal-title');
+            const mDesc = document.getElementById('modal-desc');
+            const mActions = document.getElementById('modal-actions');
+            const mType = document.getElementById('modal-type');
+            
+            mType.className = "inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 uppercase tracking-tighter text-white bg-slate-500";
+            mTitle.innerText = "🏫 遊戲教學";
+            mDesc.innerHTML = `
+                <div class="text-left space-y-3 text-base">
+                    <p>1. 點擊骰子，依照點數移動棋子。</p>
+                    <p>2. 到達格子後，根據情境選擇你的應對方式，或執行老師交付的任務。</p>
+                    <p>3. 正向、健康的情緒處理方式能獲得更多<span class="text-blue-600 font-bold">心情幣</span>。</p>
+                    <p>4. 任務型格子需請老師根據表現評分（⭐棒極了、✅很好、💡再加油）。</p>
+                    <p>5. 目標：在遊戲過程中學習情緒辨識與表達，並收集心情幣！</p>
+                </div>
+            `;
+            mActions.innerHTML = '';
+            const btn = document.createElement('button');
+            btn.className = "w-full bg-slate-700 text-white py-4 rounded-2xl font-bold";
+            btn.innerText = "我看懂了！";
+            btn.onclick = () => modal.classList.add('hidden');
+            mActions.appendChild(btn);
+            modal.classList.remove('hidden');
+        }
+
         function showCellInfo(index) {
             const space = boardData[index];
-            alert(`【${space.name}】\n${space.scenario || space.desc}`);
+            const modal = document.getElementById('modal');
+            const mTitle = document.getElementById('modal-title');
+            const mDesc = document.getElementById('modal-desc');
+            const mActions = document.getElementById('modal-actions');
+            const mType = document.getElementById('modal-type');
+
+            mType.className = `inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 uppercase tracking-tighter text-white type-${space.type}`;
+            mTitle.innerText = `格訊提示：${space.name}`;
+            mDesc.innerText = space.scenario || space.desc;
+            mActions.innerHTML = '';
+            const btn = document.createElement('button');
+            btn.className = "w-full bg-slate-500 text-white py-4 rounded-2xl font-bold";
+            btn.innerText = "關閉提示";
+            btn.onclick = () => modal.classList.add('hidden');
+            mActions.appendChild(btn);
+            modal.classList.remove('hidden');
+        }
+
+        function confirmReset() {
+            const modal = document.getElementById('modal');
+            const mTitle = document.getElementById('modal-title');
+            const mDesc = document.getElementById('modal-desc');
+            const mActions = document.getElementById('modal-actions');
+            const mType = document.getElementById('modal-type');
+
+            mType.className = "inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 uppercase tracking-tighter text-white bg-rose-500";
+            mTitle.innerText = "⚠️ 重置遊戲確認";
+            mDesc.innerText = "您確定要重置目前的遊戲嗎？所有玩家的位置、心情幣與進度將會歸零。";
+            mActions.innerHTML = '';
+            
+            const row = document.createElement('div');
+            row.className = "flex gap-3";
+            
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = "flex-1 border-2 border-slate-200 py-4 rounded-2xl font-bold";
+            cancelBtn.innerText = "取消";
+            cancelBtn.onclick = () => modal.classList.add('hidden');
+            
+            const okBtn = document.createElement('button');
+            okBtn.className = "flex-1 bg-rose-500 text-white py-4 rounded-2xl font-bold";
+            okBtn.innerText = "確定重置";
+            okBtn.onclick = () => {
+                modal.classList.add('hidden');
+                initGame();
+                showToast("遊戲已成功重置");
+            };
+            
+            row.appendChild(cancelBtn);
+            row.appendChild(okBtn);
+            mActions.appendChild(row);
+            modal.classList.remove('hidden');
+        }
+
+        function showToast(m) {
+            const t = document.createElement('div');
+            t.className = 'fixed bottom-10 bg-slate-800 text-white px-6 py-2 rounded-full z-[200] animate-bounce shadow-xl';
+            t.innerText = m;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 2500);
         }
 
         window.onload = initGame;
