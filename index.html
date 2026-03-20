@@ -12,6 +12,7 @@
             font-family: 'Noto Sans TC', sans-serif;
             background-color: #f0f4f8;
             overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .board-grid {
@@ -84,6 +85,7 @@
             justify-content: center;
             font-size: 16px;
             color: white;
+            pointer-events: none;
         }
 
         .dice-btn {
@@ -147,7 +149,7 @@
             <p class="text-sm text-red-500 font-bold mt-1">小花老師的心理教室 🗂️</p>
         </div>
         <div class="flex gap-2">
-            <button id="reset-main-btn" onclick="confirmReset()" class="bg-rose-500 hover:bg-rose-400 text-white px-4 py-1.5 rounded-lg text-sm transition-colors font-bold">重置遊戲</button>
+            <button onclick="confirmReset()" class="bg-rose-500 hover:bg-rose-400 text-white px-4 py-1.5 rounded-lg text-sm transition-colors font-bold">重置遊戲</button>
         </div>
     </div>
 
@@ -182,7 +184,7 @@
 
     <!-- 通用彈窗 Modal -->
     <div id="modal" class="modal-overlay hidden">
-        <div id="modal-container" class="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl mx-4 max-h-[90vh] overflow-y-auto custom-scroll relative transition-all duration-300">
+        <div id="modal-container" class="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl mx-4 max-h-[90vh] overflow-y-auto custom-scroll relative">
             <div id="modal-content">
                 <div id="modal-type" class="inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 uppercase tracking-tighter text-white">情境挑戰</div>
                 <h2 id="modal-title" class="text-2xl font-bold mb-4 text-slate-800">標題</h2>
@@ -240,7 +242,7 @@
         const DEFAULT_DATA = [
             { id: 0, name: "起點", type: "special", desc: "重新整理情緒，領取 200 心情幣" },
             { id: 1, name: "弄丟文具", type: "sad", scenario: "你最喜歡的原子筆不見了，那可是生日禮物...", options: [
-                { text: "大哭一場，什麼都不做了", coins: 50, feedback: "哭泣能釋放壓力，但冷靜後我們再一起找找看。" },
+                { text: "大哭一場，什麼都不做了", coins: 50, feedback: "哭泣能釋放壓力，但冷靜後我們再一起找講看。" },
                 { text: "冷靜下來回想最後一次在哪裡使用", coins: 200, feedback: "非常有條理！這能幫助你解決問題。" },
                 { text: "懷疑是隔壁同學偷的，跟他吵架", coins: -100, feedback: "在沒證據前指責別人會傷害關係喔。" }
             ]},
@@ -394,13 +396,20 @@
             }, 60);
         }
 
-        async function movePlayer(player, steps) {
-            for (let i = 0; i < steps; i++) {
-                player.pos = (player.pos + 1) % totalSpaces;
+        // --- 核心修正：支援負數步數 (倒退) ---
+        async function movePlayer(player, steps, isForced = false) {
+            const direction = steps > 0 ? 1 : -1;
+            const absSteps = Math.abs(steps);
+            
+            for (let i = 0; i < absSteps; i++) {
+                player.pos = (player.pos + direction + totalSpaces) % totalSpaces;
                 updatePlayerPositionUI(player.id, player.pos);
-                if (player.pos === 0) updateCoins(player, 200, "通過起點");
+                // 只有前進且通過起點才加錢
+                if (direction === 1 && player.pos === 0) updateCoins(player, 200, "通過起點");
                 await new Promise(r => setTimeout(r, 200));
             }
+            
+            // 移動結束後觸發格子的事件
             handleLanding(player, player.pos);
         }
 
@@ -449,10 +458,8 @@
                     btn.onclick = () => {
                         const allBtns = mActions.querySelectorAll('button');
                         allBtns.forEach(b => b.disabled = true);
-
                         updateCoins(player, opt.coins, "情境挑戰");
                         mDesc.innerHTML = `<div class="p-4 bg-blue-50 border-l-4 border-blue-500 rounded text-blue-800 font-medium">${opt.feedback}</div>`;
-                        
                         mActions.innerHTML = '';
                         const closeBtn = document.createElement('button');
                         closeBtn.className = 'w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-md';
@@ -488,13 +495,14 @@
                 closeBtn.innerText = "我準備好了";
                 closeBtn.onclick = () => {
                     modal.classList.add('hidden');
+                    // --- 修正特殊格移動後不換手的問題 ---
                     if (space.id === 18) {
-                        setTimeout(() => movePlayer(player, -3), 500);
+                        // 情緒黑洞：退後 3 格
+                        setTimeout(() => movePlayer(player, -3, true), 300);
                     } else if (space.id === 23) {
-                        player.pos = 0;
-                        updatePlayerPositionUI(player.id, 0);
-                        updateCoins(player, 200, "特殊傳送");
-                        nextTurn();
+                        // 準備好了：直達起點
+                        const diff = (totalSpaces - player.pos) % totalSpaces;
+                        setTimeout(() => movePlayer(player, diff, true), 300);
                     } else {
                         nextTurn();
                     }
@@ -508,19 +516,14 @@
             const mDesc = document.getElementById('modal-desc');
             const mInteract = document.getElementById('modal-interaction');
             const mActions = document.getElementById('modal-actions');
-
-            mDesc.innerHTML = `<div class="mb-4 text-sm font-bold text-indigo-800">【學生的回答】</div>
-                              <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl mb-6 text-slate-700 italic">"${input || '(無內容)'}"</div>
-                              <div class="text-center font-bold text-slate-500 border-t pt-4">👩‍🏫 請老師根據表現點選評語：</div>`;
+            mDesc.innerHTML = `<div class="mb-4 text-sm font-bold text-indigo-800">【學生的回答】</div><div class="p-4 bg-slate-50 border border-slate-200 rounded-xl mb-6 text-slate-700 italic">"${input || '(無內容)'}"</div><div class="text-center font-bold text-slate-500 border-t pt-4">👩‍🏫 請老師評分：</div>`;
             mInteract.classList.add('hidden');
             mActions.innerHTML = '';
-
             const grades = [
                 { label: "⭐ 棒極了 (+1.5倍)", factor: 1.5, color: "bg-amber-500", log: "表現極佳！" },
                 { label: "✅ 很好 (+1倍)", factor: 1.0, color: "bg-emerald-500", log: "回答得很棒。" },
                 { label: "💡 再加油 (+0.5倍)", factor: 0.5, color: "bg-blue-400", log: "還有進步空間。" }
             ];
-
             grades.forEach(g => {
                 const btn = document.createElement('button');
                 btn.className = `w-full ${g.color} text-white py-3 rounded-xl font-bold shadow transition-transform active:scale-95`;
@@ -531,16 +534,11 @@
                     updateCoins(player, finalCoins, "任務評分");
                     addLog(`${player.config.name} 在「${space.name}」中${g.log} (回答：${input || '無'})`);
                     addBadge(player);
-                    
                     mDesc.innerHTML = `<div class="p-6 text-center"><div class="text-4xl mb-4">🎉</div><div class="text-xl font-bold text-slate-800">${space.feedback}</div><div class="mt-2 text-indigo-600 font-bold">+ ${finalCoins} 心情幣</div></div>`;
-                    
                     const finalClose = document.createElement('button');
                     finalClose.className = 'w-full bg-slate-800 text-white py-4 rounded-2xl font-bold mt-4';
                     finalClose.innerText = "完成結算，換下一位";
-                    finalClose.onclick = () => { 
-                        document.getElementById('modal').classList.add('hidden'); 
-                        nextTurn(); 
-                    };
+                    finalClose.onclick = () => { document.getElementById('modal').classList.add('hidden'); nextTurn(); };
                     mActions.appendChild(finalClose);
                 };
                 mActions.appendChild(btn);
@@ -581,7 +579,6 @@
             document.getElementById('dice-result').innerText = '?';
         }
 
-        // --- 老師控制台邏輯 ---
         function showTeacherPanel() {
             document.getElementById('setting-player-count').value = numPlayers;
             const list = document.getElementById('editor-list');
@@ -592,7 +589,7 @@
                 item.className = 'bg-slate-50 p-5 rounded-2xl border border-slate-200';
                 let interactionHtml = '';
                 if (space.type === 'task') {
-                    interactionHtml = `<div class="grid grid-cols-2 gap-4 mt-3"><div><label class="text-[10px] font-bold text-slate-400">標準獎勵幣</label><input type="number" value="${space.reward}" class="w-full p-2 border rounded text-sm" onchange="updateTempData(${index}, 'reward', this.value)"></div><div><label class="text-[10px] font-bold text-slate-400">任務回饋語</label><input type="text" value="${space.feedback}" class="w-full p-2 border rounded text-sm" onchange="updateTempData(${index}, 'feedback', this.value)"></div></div>`;
+                    interactionHtml = `<div class="grid grid-cols-2 gap-4 mt-3"><div><label class="text-[10px] font-bold text-slate-400">獎勵幣</label><input type="number" value="${space.reward}" class="w-full p-2 border rounded text-sm" onchange="updateTempData(${index}, 'reward', this.value)"></div><div><label class="text-[10px] font-bold text-slate-400">回饋語</label><input type="text" value="${space.feedback}" class="w-full p-2 border rounded text-sm" onchange="updateTempData(${index}, 'feedback', this.value)"></div></div>`;
                 } else if (space.scenario) {
                     space.options.forEach((opt, oi) => {
                         interactionHtml += `<div class="flex gap-2 mt-2 items-center"><span class="text-[10px] text-slate-400">選${oi+1}</span><input type="text" value="${opt.text}" class="flex-1 p-2 border rounded text-xs" onchange="updateTempData(${index}, 'opt-text', this.value, ${oi})"><input type="number" value="${opt.coins}" class="w-16 p-2 border rounded text-xs" onchange="updateTempData(${index}, 'opt-coins', this.value, ${oi})"></div>`;
@@ -618,35 +615,24 @@
 
         function saveCustomData() {
             const newCount = parseInt(document.getElementById('setting-player-count').value);
-            const countChanged = newCount !== numPlayers;
             numPlayers = newCount;
             if (tempBoardData) { boardData = JSON.parse(JSON.stringify(tempBoardData)); tempBoardData = null; }
-            if (countChanged) initGame(); else { initBoard(); renderPlayerCards(); }
+            initGame();
             closeTeacherPanel();
             showToast("老師，設定已生效！");
         }
 
         function closeTeacherPanel() { document.getElementById('teacher-modal').classList.add('hidden'); }
 
-        // --- 取代 alert / confirm 的自定義 Modal 函式 ---
         function showHelp() {
             const modal = document.getElementById('modal');
             const mTitle = document.getElementById('modal-title');
             const mDesc = document.getElementById('modal-desc');
             const mActions = document.getElementById('modal-actions');
             const mType = document.getElementById('modal-type');
-            
             mType.className = "inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 uppercase tracking-tighter text-white bg-slate-500";
             mTitle.innerText = "🏫 遊戲教學";
-            mDesc.innerHTML = `
-                <div class="text-left space-y-3 text-base">
-                    <p>1. 點擊骰子，依照點數移動棋子。</p>
-                    <p>2. 到達格子後，根據情境選擇你的應對方式，或執行老師交付的任務。</p>
-                    <p>3. 正向、健康的情緒處理方式能獲得更多<span class="text-blue-600 font-bold">心情幣</span>。</p>
-                    <p>4. 任務型格子需請老師根據表現評分（⭐棒極了、✅很好、💡再加油）。</p>
-                    <p>5. 目標：在遊戲過程中學習情緒辨識與表達，並收集心情幣！</p>
-                </div>
-            `;
+            mDesc.innerHTML = `<div class="text-left space-y-3 text-base"><p>1. 擲骰子移動棋子。</p><p>2. 到達格子後執行任務或做選擇。</p><p>3. 健康的情緒處理方式能獲得<span class="text-blue-600 font-bold">心情幣</span>。</p><p>4. 任務需由老師點評給分。</p></div>`;
             mActions.innerHTML = '';
             const btn = document.createElement('button');
             btn.className = "w-full bg-slate-700 text-white py-4 rounded-2xl font-bold";
@@ -663,7 +649,6 @@
             const mDesc = document.getElementById('modal-desc');
             const mActions = document.getElementById('modal-actions');
             const mType = document.getElementById('modal-type');
-
             mType.className = `inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 uppercase tracking-tighter text-white type-${space.type}`;
             mTitle.innerText = `格訊提示：${space.name}`;
             mDesc.innerText = space.scenario || space.desc;
@@ -682,29 +667,20 @@
             const mDesc = document.getElementById('modal-desc');
             const mActions = document.getElementById('modal-actions');
             const mType = document.getElementById('modal-type');
-
             mType.className = "inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 uppercase tracking-tighter text-white bg-rose-500";
             mTitle.innerText = "⚠️ 重置遊戲確認";
-            mDesc.innerText = "您確定要重置目前的遊戲嗎？所有玩家的位置、心情幣與進度將會歸零。";
+            mDesc.innerText = "確定要重置嗎？進度將消失。";
             mActions.innerHTML = '';
-            
             const row = document.createElement('div');
             row.className = "flex gap-3";
-            
             const cancelBtn = document.createElement('button');
             cancelBtn.className = "flex-1 border-2 border-slate-200 py-4 rounded-2xl font-bold";
             cancelBtn.innerText = "取消";
             cancelBtn.onclick = () => modal.classList.add('hidden');
-            
             const okBtn = document.createElement('button');
             okBtn.className = "flex-1 bg-rose-500 text-white py-4 rounded-2xl font-bold";
-            okBtn.innerText = "確定重置";
-            okBtn.onclick = () => {
-                modal.classList.add('hidden');
-                initGame();
-                showToast("遊戲已成功重置");
-            };
-            
+            okBtn.innerText = "確定";
+            okBtn.onclick = () => { modal.classList.add('hidden'); initGame(); showToast("已重置"); };
             row.appendChild(cancelBtn);
             row.appendChild(okBtn);
             mActions.appendChild(row);
